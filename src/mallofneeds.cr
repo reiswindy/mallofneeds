@@ -132,12 +132,16 @@ module Mallofneeds
     @clock : SF::Clock
     @sprite : SF::Sprite
 
-    def initialize(@lifetime, @price, @fun, @health, position)
+    def initialize(@lifetime, @price, @fun, @health, position, texture_rect)
+      x, y = position
       sprite = SF::Sprite.new
       sprite.texture = Game::SPRITESHEET
       sprite.position = position
+      sprite.texture_rect = texture_rect
+      label = SF::Text.new("#{price}", Game::FONT, 15)
+      label.position = {x + ((sprite.global_bounds.width - label.global_bounds.width) / 2).to_i, y + texture_rect.height + 2}
       @sprite = sprite
-      @label = SF::Text.new("#{price}", Game::FONT, 15)
+      @label = label
       @clock = SF::Clock.new
     end
 
@@ -157,10 +161,8 @@ module Mallofneeds
       FUN = 0
       HEALTH = 30
       def initialize(lifetime, price, position)
-        super(lifetime, price, FUN, HEALTH, position)
-        @sprite.texture_rect = SF.int_rect(16, 0, 14, 22)
-        x, y = position
-        @label.position = {x + (@sprite.global_bounds.width / 2).to_i - (@label.global_bounds.width / 2).to_i, y + 22 + 2}
+        rect = SF.int_rect(16, 0, 14, 22)
+        super(lifetime, price, FUN, HEALTH, position, rect)
       end
     end
 
@@ -168,10 +170,8 @@ module Mallofneeds
       FUN = 10
       HEALTH = 20
       def initialize(lifetime, price, position)
-        super(lifetime, price, FUN, HEALTH, position)
-        @sprite.texture_rect = SF.int_rect(32, 0, 20, 20)
-        x, y = position
-        @label.position = {x + (@sprite.global_bounds.width / 2).to_i - (@label.global_bounds.width / 2).to_i, y + 20 + 2}
+        rect = SF.int_rect(32, 0, 20, 20)
+        super(lifetime, price, FUN, HEALTH, position. rect)
       end
     end
 
@@ -179,10 +179,8 @@ module Mallofneeds
       FUN = 30
       HEALTH = 0
       def initialize(lifetime, price, position)
-        super(lifetime, price, FUN, HEALTH, position)
-        @sprite.texture_rect = SF.int_rect(53, 0, 20, 20)
-        x, y = position
-        @label.position = {x + (@sprite.global_bounds.width / 2).to_i - (@label.global_bounds.width / 2).to_i, y + 20 + 2}
+        rect = SF.int_rect(53, 0, 20, 20)
+        super(lifetime, price, FUN, HEALTH, position, rect)
       end
     end
   end
