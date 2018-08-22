@@ -49,11 +49,39 @@ module Mallofneeds
 
     def update
       @player.update
+      @items.reject! do |item|
+        collides = @player.collides_with?(item.collision_rect)
+        consume(item) if collides
+        collides || item.expired?
+      end
+      spawn_random_item if needs_item?
+    end
+
+    def needs_item?
+      if @items.empty? || (@items.size < 5 && rand(1000) <= 20)
+        true
+      else
+        false
+      end
+    end
+
+    def spawn_random_item
+      @items.push(Item.create_random({rand(SCREEN_WIDTH), rand(SCREEN_HEIGHT)}))
+    end
+
+    def consume(item)
+      @@variables[:fun] += item.fun
+      @@variables[:health] += item.health
+      @@variables[:money] -= item.price
+      puts @@variables
     end
 
     def render
       @window.clear(SF::Color::Black)
       @window.draw(@player)
+      @items.each do |item|
+        @window.draw(item)
+      end
       @window.display
     end
 
@@ -119,6 +147,14 @@ module Mallofneeds
     def draw(target, states)
       target.draw(@sprite)
     end
+
+    def collides_with?(rect : SF::Rect)
+      !collision_rect.intersects?(rect).nil?
+    end
+
+    def collision_rect
+      @sprite.global_bounds
+    end
   end
 
   abstract class Item
@@ -145,6 +181,14 @@ module Mallofneeds
       @clock = SF::Clock.new
     end
 
+    getter :fun
+    getter :price
+    getter :health
+    
+    def collision_rect
+      @sprite.global_bounds
+    end
+
     def update
     end
 
@@ -154,12 +198,13 @@ module Mallofneeds
     end
 
     def expired?
-      @clock.elapsed_time > @lifetime
+      @clock.elapsed_time.as_seconds > @lifetime
     end
 
     class Medicine < Item
       FUN = 0
       HEALTH = 30
+      CATEGORY_ID = 0
       def initialize(lifetime, price, position)
         rect = SF.int_rect(16, 0, 14, 22)
         super(lifetime, price, FUN, HEALTH, position, rect)
@@ -169,18 +214,33 @@ module Mallofneeds
     class Food < Item
       FUN = 10
       HEALTH = 20
+      CATEGORY_ID = 1
       def initialize(lifetime, price, position)
         rect = SF.int_rect(32, 0, 20, 20)
-        super(lifetime, price, FUN, HEALTH, position. rect)
+        super(lifetime, price, FUN, HEALTH, position, rect)
       end
     end
 
     class Disc < Item
       FUN = 30
       HEALTH = 0
+      CATEGORY_ID = 2
       def initialize(lifetime, price, position)
         rect = SF.int_rect(53, 0, 20, 20)
         super(lifetime, price, FUN, HEALTH, position, rect)
+      end
+    end
+
+    def self.create_random(position) : Item
+      case category_id = rand(3)
+      when Medicine::CATEGORY_ID
+        Medicine.new(rand(3) + 2, [40, 80, 150].sample, position).as(Item)
+      when Food::CATEGORY_ID
+        Food.new(rand(3) + 2, [5, 15, 30, 40].sample, position).as(Item)
+      when Disc::CATEGORY_ID
+        Disc.new(rand(3) + 2, [15, 35, 55, 80].sample, position).as(Item)
+      else
+        raise "Unkown category id"
       end
     end
   end
