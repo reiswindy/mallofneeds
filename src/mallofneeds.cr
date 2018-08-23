@@ -1,4 +1,5 @@
 require "crsfml"
+require "./mallofneeds/media"
 
 module Mallofneeds
   VERSION = "0.1.0"
@@ -12,13 +13,10 @@ module Mallofneeds
     FONT = SF::Font.from_file("media/Hack-Regular.ttf")
 
     @@variables = {
-      :health => 0,
-      :fun => 0,
       :happiness => 3, 
       :money => 300, 
       :debt => 0, 
       :stage => 1, 
-      :expenses => 0,
       :times_slacked => 0,
     }
     
@@ -30,7 +28,7 @@ module Mallofneeds
       window.vertical_sync_enabled = true
       @window = window
       @player = Player.new({SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2})
-      @items = [] of Item
+      @stage = Stage.new(@@variables[:stage], @player)
     end
 
     def process_events
@@ -48,40 +46,15 @@ module Mallofneeds
     end
 
     def update
-      @player.update
-      @items.reject! do |item|
-        collides = @player.collides_with?(item.collision_rect)
-        consume(item) if collides
-        collides || item.expired?
-      end
-      spawn_random_item if needs_item?
+      @stage.update
     end
 
-    def needs_item?
-      if @items.empty? || (@items.size < 5 && rand(1000) <= 20)
-        true
-      else
-        false
-      end
-    end
-
-    def spawn_random_item
-      @items.push(Item.create_random({rand(SCREEN_WIDTH), rand(SCREEN_HEIGHT)}))
-    end
-
-    def consume(item)
-      @@variables[:fun] += item.fun
-      @@variables[:health] += item.health
-      @@variables[:money] -= item.price
-      puts @@variables
+    def game_over?      
     end
 
     def render
       @window.clear(SF::Color::Black)
-      @window.draw(@player)
-      @items.each do |item|
-        @window.draw(item)
-      end
+      @window.draw(@stage)
       @window.display
     end
 
@@ -91,6 +64,134 @@ module Mallofneeds
         update
         render
       end
+    end
+  end
+
+  class Stage
+    include SF::Drawable
+
+    BG = [
+      SF::Texture.from_file("media/bg/background_fun.png"),
+      SF::Texture.from_file("media/bg/background.jpg"),
+      SF::Texture.from_file("media/bg/background.png"),
+      SF::Texture.from_file("media/bg/mallsoft.jpg"),
+    ]
+
+    @fun = 0
+    @health = 0
+    @expenses = 0
+    @stage_number : Int32
+    @player : Player
+
+    def initialize(@stage_number, @player)
+      @items = [] of Item
+      @clock = SF::Clock.new
+      @background = spawn_random_background
+    end
+
+    def update
+      @player.update
+      @background.update
+      @items.reject! do |item|
+        collides = @player.collides_with?(item.collision_rect)
+        consume(item) if collides
+        collides || item.expired?
+      end
+      spawn_random_item if needs_item?
+      spawn_random_background if needs_background?
+    end
+
+    def needs_item?
+      @items.empty? || (@items.size < 5 && rand(1000) <= 20) ? true : false
+    end
+
+    def spawn_random_item
+      @items.push(Item.create_random({rand(Game::SCREEN_WIDTH), rand(Game::SCREEN_HEIGHT)}))
+    end
+
+    def needs_background?
+      @background.expired?
+    end
+
+    def spawn_random_background
+      direction = {rand(3) - 1, rand(3) - 1}
+      position = {rand(Game::SCREEN_WIDTH), rand(Game::SCREEN_HEIGHT)}
+      @background = Background.new(BG.sample, position, direction)
+    end
+
+    def consume(item)
+      @fun += item.fun
+      @health += item.health
+      @expenses += item.price
+      # play sound
+    end
+
+    def time_up?
+      @clock.elapsed_time.as_seconds > 15
+    end
+
+    def draw(target, states)
+      target.draw(@background)
+      target.draw(@player)
+      @items.each do |item|
+        target.draw(item)
+      end
+    end
+  end
+
+  class Background
+    include SF::Drawable
+    
+    SPEED = 1
+    LIFETIME = 4
+    MOVE_DELAY = 25
+
+    @sprite : SF::Sprite
+    @direction : Tuple(Int32, Int32)
+
+    def initialize(image_texture, position, @direction)
+      sprite = SF::Sprite.new(image_texture)
+      sprite.position = position
+      @sprite = sprite
+      @clock_life = SF::Clock.new
+      @clock_movement = SF::Clock.new
+    end
+
+    def update
+      if needs_movement?
+        dir_x, dir_y = @direction
+        old_x, old_y = @sprite.position
+        new_pos = {old_x + SPEED * dir_x, old_y + SPEED * dir_y}
+        @sprite.position = new_pos
+      end
+      update_opacity
+    end
+
+    def needs_movement?
+      move = @clock_movement.elapsed_time.as_milliseconds > MOVE_DELAY
+      @clock_movement.restart if move
+      move
+    end
+
+    def expired?
+      @clock_life.elapsed_time.as_seconds > LIFETIME
+    end
+
+    def update_opacity
+      elapsed_time = @clock_life.elapsed_time.as_milliseconds
+      p elapsed_time
+      alpha_proportion = Math.max(1 - elapsed_time.to_f / (LIFETIME * 1000).to_f, 0)
+      p alpha_proportion
+      alpha = (255 * alpha_proportion).floor.to_i
+      p alpha
+      color = @sprite.color
+      p color
+      color.a = alpha
+      @sprite.color = color
+    end
+
+    def draw(target, states)
+      target.draw(@sprite)
     end
   end
 
