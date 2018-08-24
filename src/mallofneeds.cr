@@ -13,13 +13,13 @@ module Mallofneeds
     FONT = SF::Font.from_file("media/Hack-Regular.ttf")
 
     @@variables = {
-      :happiness => 3, 
-      :money => 300, 
-      :debt => 0, 
-      :stage => 1, 
+      :happiness => 3,
+      :money => 300,
+      :debt => 0,
+      :stage => 1,
       :times_slacked => 0,
     }
-    
+
     @window : SF::RenderWindow
 
     def initialize
@@ -28,7 +28,7 @@ module Mallofneeds
       window.vertical_sync_enabled = true
       @window = window
       @player = Player.new({SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2})
-      @stage = Stage.new(@@variables[:stage], @player)
+      @stage = Stage.new(@@variables[:stage], @player, @@variables[:money], @@variables[:debt])
     end
 
     def process_events
@@ -40,7 +40,7 @@ module Mallofneeds
           @player.key_pressed(event.code)
         when SF::Event::KeyReleased
           @player.key_released(event.code)
-        else 
+        else
         end
       end
     end
@@ -49,7 +49,7 @@ module Mallofneeds
       @stage.update
     end
 
-    def game_over?      
+    def game_over?
     end
 
     def render
@@ -76,17 +76,27 @@ module Mallofneeds
       SF::Texture.from_file("media/bg/background.png"),
       SF::Texture.from_file("media/bg/mallsoft.jpg"),
     ]
+    TIME_LIMIT = 15
 
     @fun = 0
     @health = 0
     @expenses = 0
     @stage_number : Int32
+    @money : Int32
+    @debt : Int32
     @player : Player
 
-    def initialize(@stage_number, @player)
+    def initialize(@stage_number, @player, @money, @debt)
       @items = [] of Item
       @clock = SF::Clock.new
       @background = spawn_random_background
+
+      @hud_time = SF::Text.new("", Game::FONT, 20)
+      @hud_money = SF::Text.new("", Game::FONT, 20)
+      @hud_fun = SF::Text.new("", Game::FONT, 20)
+      @hud_health = SF::Text.new("", Game::FONT, 20)
+      @hud_expenses = SF::Text.new("", Game::FONT, 20)
+      @hud_debt = SF::Text.new("", Game::FONT, 20)
     end
 
     def update
@@ -99,6 +109,7 @@ module Mallofneeds
       end
       spawn_random_item if needs_item?
       spawn_random_background if needs_background?
+      update_gui
     end
 
     def needs_item?
@@ -126,8 +137,25 @@ module Mallofneeds
       # play sound
     end
 
+    def update_gui
+      days = TIME_LIMIT - @clock.elapsed_time.as_seconds.to_i
+      @hud_time.string = "Days Left: #{days}"
+      @hud_money.string = "Savings: $#{@money}"
+      @hud_fun.string = "Fun Needs: #{@fun}%"
+      @hud_health.string = "Health Needs: #{@health}%"
+      @hud_expenses.string = "Spent: $#{@expenses}"
+      @hud_debt.string = "Debt: $#{@debt}"
+
+      @hud_time.position = {Game::SCREEN_WIDTH / 2 - @hud_time.global_bounds.width / 2, 20}
+      @hud_money.position = {20, 20}
+      @hud_fun.position = {20, Game::SCREEN_HEIGHT - 80}
+      @hud_health.position = {20, Game::SCREEN_HEIGHT - 55}
+      @hud_expenses.position = {Game::SCREEN_WIDTH - (20 + @hud_expenses.global_bounds.width), 20}
+      @hud_debt.position = {20, Game::SCREEN_HEIGHT - 30}
+    end
+
     def time_up?
-      @clock.elapsed_time.as_seconds > 15
+      @clock.elapsed_time.as_seconds >= 15
     end
 
     def draw(target, states)
@@ -136,12 +164,22 @@ module Mallofneeds
       @items.each do |item|
         target.draw(item)
       end
+      draw_gui(target)
+    end
+
+    def draw_gui(target)
+      target.draw(@hud_time)
+      target.draw(@hud_money)
+      target.draw(@hud_fun)
+      target.draw(@hud_health)
+      target.draw(@hud_expenses)
+      target.draw(@hud_debt)
     end
   end
 
   class Background
     include SF::Drawable
-    
+
     SPEED = 1
     LIFETIME = 4
     MOVE_DELAY = 25
@@ -158,12 +196,7 @@ module Mallofneeds
     end
 
     def update
-      if needs_movement?
-        dir_x, dir_y = @direction
-        old_x, old_y = @sprite.position
-        new_pos = {old_x + SPEED * dir_x, old_y + SPEED * dir_y}
-        @sprite.position = new_pos
-      end
+      update_position if needs_movement?
       update_opacity
     end
 
@@ -177,15 +210,18 @@ module Mallofneeds
       @clock_life.elapsed_time.as_seconds > LIFETIME
     end
 
+    def update_position
+      dir_x, dir_y = @direction
+      old_x, old_y = @sprite.position
+      new_pos = {old_x + SPEED * dir_x, old_y + SPEED * dir_y}
+      @sprite.position = new_pos
+    end
+
     def update_opacity
       elapsed_time = @clock_life.elapsed_time.as_milliseconds
-      p elapsed_time
       alpha_proportion = Math.max(1 - elapsed_time.to_f / (LIFETIME * 1000).to_f, 0)
-      p alpha_proportion
       alpha = (255 * alpha_proportion).floor.to_i
-      p alpha
       color = @sprite.color
-      p color
       color.a = alpha
       @sprite.color = color
     end
@@ -285,12 +321,9 @@ module Mallofneeds
     getter :fun
     getter :price
     getter :health
-    
+
     def collision_rect
       @sprite.global_bounds
-    end
-
-    def update
     end
 
     def draw(target, states)
