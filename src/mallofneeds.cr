@@ -12,15 +12,18 @@ module Mallofneeds
     SPRITESHEET = SF::Texture.from_file("media/sprites/item_texture.png")
     FONT = SF::Font.from_file("media/Hack-Regular.ttf")
 
-    @@variables = {
-      :happiness => 3,
-      :money => 300,
-      :debt => 0,
-      :stage => 1,
-      :times_slacked => 0,
-    }
+    INCOME_PER_STAGE = 300
+
+    @times_slacked = 0
+    @income_rate = 1.0
+    @times_sick = 0
+    @next_stage = 1
+    @happiness = 3
+    @money = 300
+    @debt = 0
 
     @window : SF::RenderWindow
+    @stage : Stage
 
     def initialize
       video_mode = SF::VideoMode.new(SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -28,7 +31,32 @@ module Mallofneeds
       window.vertical_sync_enabled = true
       @window = window
       @player = Player.new({SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2})
-      @stage = Stage.new(@@variables[:stage], @player, @@variables[:money], @@variables[:debt])
+      @stage = create_stage
+      @intermission = nil.as(Intermission?)
+    end
+
+    def create_stage
+      Stage.new(@next_stage, @player, @money, @debt)
+    end
+
+    def create_intermission
+      messages = [] of String
+      messages.push("You're slacking off") if @stage.fun > 100
+      messages.push("Your life becomes dull") if @stage.fun < 70
+      messages.push("Your health worsens") if @stage.health < 100
+      messages.push("You're unhappy") if @happiness < 3
+      messages.push("You somehow made it") if messages.empty?
+      Intermission.new(messages)
+    end
+
+    def create_game_over_intermission
+      messages = [
+        "Are humans exceptional?",
+        "Have they developed beyond their evolved state?",
+        "Your death might provide a better insight",
+        "You survived #{@stage.stage_number} rounds"
+      ]
+      Intermission.new(messages)
     end
 
     def process_events
@@ -46,15 +74,104 @@ module Mallofneeds
     end
 
     def update
-      @stage.update
+      intermission = @intermission
+      if !intermission
+        @stage.update
+        if @stage.time_up?
+          if game_over?
+            @intermission = create_game_over_intermission
+          else
+            @intermission = create_intermission
+          end
+        end
+      elsif intermission.time_up?
+        @intermission = nil
+        if game_over?
+          reset_game_variables
+        else
+          update_game_variables
+        end
+        @stage = create_stage
+      end
     end
 
+    def update_game_variables
+      update_happiness
+      update_sickness
+      update_slack
+      update_income_rate
+      update_money
+      update_speed
+    end
+
+    def update_happiness
+      h = 0
+      h = -1 if @stage.fun < 70
+      h = 1 if @stage.fun > 90 && @happiness < 3
+      @happiness += h
+    end
+
+    def update_sickness
+      s = 0
+      s = 1 if @stage.health < 100
+      @times_sick += s
+    end
+
+    def update_slack
+      s = 0
+      s = 1 if @stage.fun > 100
+      @times_slacked += s
+    end
+
+    def update_income_rate
+      r = 1
+      r *= 0.75 if @stage.fun > 100
+      r *= 0.5 if @stage.health < 100
+      @income_rate *= r
+    end
+
+    def update_money
+      @debt += @stage.expenses
+      @money -= @debt
+      if @money < 0
+        @debt = @money * (-1)
+        @money = 0
+      else
+        @debt = 0
+      end
+      income = @income_rate * INCOME_PER_STAGE
+      @money += income.to_i
+    end
+
+    def update_speed
+      @player.reset_speed
+      @player.alter_speed(0.5) if @stage.health < 100
+      @player.alter_speed(0.7) if @happiness == 2
+      @player.alter_speed(0.5) if @happiness == 1
+    end
+
+    def reset_game_variables
+      @player.reset_speed
+      @times_slacked = 0
+      @income_rate = 1.0
+      @times_sick = 0
+      @next_stage = 1
+      @happiness = 3
+      @money = 300
+      @debt = 0
+      end
+
     def game_over?
+      @happiness == 0 || @debt > 1000 || @times_slacked > 5 || @times_sick > 5
     end
 
     def render
       @window.clear(SF::Color::Black)
-      @window.draw(@stage)
+      if intermission = @intermission
+        @window.draw(intermission)
+      else
+        @window.draw(@stage)
+      end
       @window.display
     end
 
@@ -63,6 +180,36 @@ module Mallofneeds
         process_events
         update
         render
+      end
+    end
+  end
+
+  class Intermission
+    include SF::Drawable
+
+    DURATION_IN_SECONDS = 4
+
+    @messages : Array(SF::Text)
+
+    def initialize(messages)
+      pos = 0
+      sep = 20
+      @timer = SF::Clock.new
+      @messages = messages.map do |message|
+        text = SF::Text.new(message, Game::FONT, 20)
+        text.position = {Game::SCREEN_WIDTH / 2 - text.global_bounds.width / 2, pos + sep}
+        pos += sep + text.global_bounds.height
+        text
+      end
+    end
+
+    def time_up?
+      @timer.elapsed_time.as_seconds > DURATION_IN_SECONDS
+    end
+
+    def draw(target, states)
+      @messages.each do |message|
+        target.draw(message)
       end
     end
   end
@@ -98,6 +245,11 @@ module Mallofneeds
       @hud_expenses = SF::Text.new("", Game::FONT, 20)
       @hud_debt = SF::Text.new("", Game::FONT, 20)
     end
+
+    getter :fun
+    getter :health
+    getter :expenses
+    getter :stage_number
 
     def update
       @player.update
@@ -237,7 +389,7 @@ module Mallofneeds
     SPEED = 4
 
     @sprite : SF::Sprite
-    @speed_multiplier = 1
+    @speed_multiplier = 1.0
     @moving_up = false
     @moving_down = false
     @moving_left = false
@@ -249,6 +401,14 @@ module Mallofneeds
       sprite.texture_rect = SF.int_rect(0, 0, 15, 13)
       sprite.position = position
       @sprite = sprite
+    end
+
+    def alter_speed(multiplier)
+      @speed_multiplier *= multiplier
+    end
+
+    def reset_speed
+      @speed_multiplier = 1
     end
 
     def update
