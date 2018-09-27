@@ -1,5 +1,5 @@
 require "crsfml"
-require "./mallofneeds/media"
+require "crsfml/audio"
 
 module Mallofneeds
   VERSION = "0.1.0"
@@ -11,6 +11,8 @@ module Mallofneeds
 
     SPRITESHEET = SF::Texture.from_file("media/sprites/item_texture.png")
     FONT = SF::Font.from_file("media/Hack-Regular.ttf")
+    BGM = SF::Music.from_file("media/Fountain_Plaza.ogg")
+    SE = SF::SoundBuffer.from_file("media/Kaching.ogg")
 
     INCOME_PER_STAGE = 300
 
@@ -33,6 +35,8 @@ module Mallofneeds
       @player = Player.new({SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2})
       @stage = create_stage
       @intermission = nil.as(Intermission?)
+      BGM.loop = true
+      BGM.play
     end
 
     def create_stage
@@ -63,6 +67,7 @@ module Mallofneeds
       while event = @window.poll_event
         case event
         when SF::Event::Closed
+          BGM.stop
           @window.close
         when SF::Event::KeyPressed
           @player.key_pressed(event.code)
@@ -238,6 +243,9 @@ module Mallofneeds
       @clock = SF::Clock.new
       @background = spawn_random_background
 
+      @sound = SF::Sound.new(Game::SE)
+      @sound.pitch = 3
+
       @hud_time = SF::Text.new("", Game::FONT, 20)
       @hud_money = SF::Text.new("", Game::FONT, 20)
       @hud_fun = SF::Text.new("", Game::FONT, 20)
@@ -286,7 +294,7 @@ module Mallofneeds
       @fun += item.fun
       @health += item.health
       @expenses += item.price
-      # play sound
+      @sound.play
     end
 
     def update_gui
