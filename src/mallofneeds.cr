@@ -107,6 +107,7 @@ module Mallofneeds
       update_income_rate
       update_money
       update_speed
+      increase_stage_number
     end
 
     def update_happiness
@@ -153,6 +154,10 @@ module Mallofneeds
       @player.alter_speed(0.5) if @stage.health < 100
       @player.alter_speed(0.7) if @happiness == 2
       @player.alter_speed(0.5) if @happiness == 1
+    end
+
+    def increase_stage_number
+      @next_stage += 1
     end
 
     def reset_game_variables
