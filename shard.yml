@@ -6,7 +6,7 @@ authors:
 
 targets:
   mallofneeds:
-    main: src/mallofneeds.cr
+    main: src/app.cr
 
 crystal: 0.26.0
 
