@@ -1,26 +1,23 @@
 # mallofneeds
 
-TODO: Write a description here
+A rewrite of [Mall of Needs](https://github.com/reiswindy/Mall-of-Needs) in Crystal using CrSFML.
 
 ## Installation
 
-TODO: Write installation instructions here
+1. Install [CrSFML](https://github.com/oprypin/crsfml) using Approach 1
+2. Clone this repository
+3. Make CrSFML available to this project.
+4. Run:
+```bash
+$ shards build
+```
 
 ## Usage
 
-TODO: Write usage instructions here
-
-## Development
-
-TODO: Write development instructions here
-
-## Contributing
-
-1. Fork it (<https://github.com/reiswindy/mallofneeds/fork>)
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create a new Pull Request
+Make CrSFML available to this project, and then run:
+```bash
+$ bin/mallofneeds
+```
 
 ## Contributors
 
