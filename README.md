@@ -4,17 +4,16 @@ A rewrite of [Mall of Needs](https://github.com/reiswindy/Mall-of-Needs) in Crys
 
 ## Installation
 
-1. Install [CrSFML](https://github.com/oprypin/crsfml) using Approach 1
-2. Clone this repository
-3. Make CrSFML available to this project.
-4. Run:
+Run from project root:
+
 ```bash
-$ shards build
+$ shards --production build --release
 ```
 
 ## Usage
 
-Make CrSFML available to this project, and then run:
+Run from project root:
+
 ```bash
 $ bin/mallofneeds
 ```
